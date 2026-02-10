@@ -1,0 +1,12 @@
+# outputs / generated results
+outputs/
+outputs for 2D slice/
+
+# documents
+*.pdf
+*.docx
+*.pptx
+
+# python cache
+__pycache__/
+*.pyc

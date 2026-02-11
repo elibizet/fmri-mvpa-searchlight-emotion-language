@@ -1,6 +1,6 @@
 # Searchlight Analysis Within Modalities
 
-This repository contains the Python code used for the master’s thesis:
+This repository contains the Python code used for my master’s thesis:
 
 **“[Decoding Modality-Independent Emotional Representations in Language-Related Brain Networks]”**  
 Master’s Programme in [Language and AI]  
@@ -13,13 +13,10 @@ classification (e.g., happiness vs. anger) across different sensory modalities.
 
 ## Repository contents
 - `whole_brain_searchlight.py`  
-  Whole-brain searchlight analysis
+  Whole-brain searchlight analysis¨.  Within-modality classification script (happiness vs. anger)
 
 - `single_axial_slice_searchlight.py`  
   Searchlight analysis on a single axial slice (for visualization/debugging)
-
-- `scripts_within_searchlight_happy_vs_anger.py`  
-  Within-modality classification script (happiness vs. anger)
 
 ## Requirements
 The code was developed and tested with:
@@ -28,14 +25,9 @@ The code was developed and tested with:
 - numpy
 - scipy
 - scikit-learn
-- nibabel
 
 (Exact versions may be specified later if needed.)
 
 ## Usage
 Scripts are intended to be run from the command line or an IDE such as VS Code.
 Paths to input data and output directories must be adapted to the local environment.
-
-Example:
-```bash
-python whole_brain_searchlight.py

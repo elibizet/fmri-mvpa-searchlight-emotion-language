@@ -12,11 +12,14 @@ on fMRI data using Nilearn. Analyses focus on within-modality emotion
 classification (e.g., happiness vs. anger) across different sensory modalities.
 
 ## Repository contents
-- `whole_brain_searchlight.py`  
+- 'whole_brain_searchlight.py'  
   Whole-brain searchlight analysis¨.  Within-modality classification script (happiness vs. anger)
 
-- `single_axial_slice_searchlight.py`  
+- 'single_axial_slice_searchlight.py'  
   Searchlight analysis on a single axial slice (for visualization/debugging)
+
+- 'two_separate_sarchlight.py'
+  Splitting sessions into (1–10) and late (11–19) and doing leave-one-session-out within each block
 
 ## Requirements
 The code was developed and tested with:

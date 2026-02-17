@@ -1,5 +1,5 @@
-"""By splitting sessions into early (1–10) and late (11–19) 
-and doing leave-one-session-out within each block, you’re essentially asking:
+"""By splitting sessions into (1–10) and late (11–19) 
+and doing leave-one-session-out within each block:
 
 1. Is the emotion representation stable across time within an epoch?
 If a classifier trained on 9 sessions can decode the held-out 10th 

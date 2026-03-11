@@ -5,7 +5,8 @@ with my supervisor's requirements kept in mind:
 - 8 mm radius
 - Emotion pair e.g. happiness vs anger
 - full unthresholded maps
-- label shuffling
+- label shuffling (global shuffling across all sessions)
+- groups = session kept unchanged for LeaveOneGroupOut(session)
 - start with 5 permutations
 It does not: (see separate script for that)
 - compute permutation maxima
@@ -21,6 +22,7 @@ not across the whole dataset."""
 # run: python whole_brain_searchlight_permutation.py --subject sub-001 --n-perms 5 --seed 42
 
 from pathlib import Path
+import platform
 import argparse
 import json
 import re
@@ -39,15 +41,35 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import LinearSVC
 
 
-# PATHS (EDIT IF NEEDED)
-BETAS_ROOT = Path(r"D:\singleN_betas")
+# PATHS (AUTO-DETECT OS)
 
-PROJECT_ROOT = Path(
-    r"C:\Users\Fabian\OneDrive - Stockholm University\Desktop\Eli\Master thesis\Results\Searchlight results\BAS2 passive task\Permutation_test\Pair: anxiety vs sadness"
+OS_NAME = platform.system()
+
+if OS_NAME == "Windows":
+    BETAS_ROOT = Path(r"D:\singleN_betas")
+    REPO_ROOT = Path(
+        r"C:\Users\Fabian\OneDrive - Stockholm University\Desktop\Eli\Master thesis"
+    )
+
+elif OS_NAME == "Linux":
+    # EDIT THESE TWO LINES ON THE SCHOOL COMPUTER
+    BETAS_ROOT = Path("/path/to/singleN_betas")
+    REPO_ROOT = Path("/home/yourusername/Elis_master_thesis/Searchlight-analysis-within-modalities")
+
+else:
+    raise OSError(f"Unsupported operating system: {OS_NAME}")
+
+PROJECT_ROOT = (
+    REPO_ROOT
+    / "Results"
+    / "Searchlight results"
+    / "BAS2 passive task"
+    / "happiness vs anger (8 mm radius)"
 )
+
 OUTDIR = (
     PROJECT_ROOT
-    / "passive_task_video_whole_brain_searchlight_permutations"
+    / "passive_task_whole_brain_searchlight_permutations_global"
     / "within_passive_betas"
 )
 
@@ -56,12 +78,13 @@ LABELS_FILE = "regressor_labels.csv"
 
 
 # ANALYSIS CHOICES
+
 TASK_FILTER = "passive"
-PAIR = ("anxiety", "sadness")
-MODALITIES = ["audiovisual"]   # e.g. ["audio", "video", "audiovisual"]
+PAIR = ("happiness", "anger")
+MODALITIES = ["audiovisual"]   # e.g. ["audio"], ["video"], ["audiovisual"]
 
 RADIUS_MM = 8.0
-N_JOBS = 4
+N_JOBS = 10
 VERBOSE = 1
 C_SVM = 1.0
 
@@ -70,6 +93,7 @@ DEFAULT_RANDOM_SEED = 42
 
 
 # HELPERS
+
 def _read_regressor_labels(labels_path: Path) -> list[str]:
     df = pd.read_csv(labels_path, header=None)
     col0 = df.iloc[:, 0].astype(str).str.strip()
@@ -82,6 +106,12 @@ def _beta_filename(i: int) -> str:
 
 
 def parse_label(label: str) -> dict | None:
+    """
+    Expected format:
+    run-<n>_<task>_<emotion>_<modality>
+    Example:
+    run-1_passive_happiness_audiovisual
+    """
     if f"_{TASK_FILTER}_" not in label:
         return None
 
@@ -96,14 +126,24 @@ def parse_label(label: str) -> dict | None:
     if modality not in {"audio", "video", "audiovisual"}:
         return None
 
-    return {"run": run, "task": TASK_FILTER, "emotion": emotion, "modality": modality}
+    return {
+        "run": run,
+        "task": TASK_FILTER,
+        "emotion": emotion,
+        "modality": modality,
+    }
 
 
 def choose_matching_mask(bas_dir: Path, beta_img_path: Path) -> Path:
+    """
+    Select a mask in BAS directory that matches the beta geometry.
+    """
     candidates = [bas_dir / "_mask.nii", bas_dir / "mask.nii"]
     candidates = [p for p in candidates if p.exists()]
     if not candidates:
-        raise FileNotFoundError(f"No mask found in {bas_dir} (expected _mask.nii or mask.nii)")
+        raise FileNotFoundError(
+            f"No mask found in {bas_dir} (expected _mask.nii or mask.nii)"
+        )
 
     beta_img = load_img(str(beta_img_path))
     beta_shape = beta_img.shape[:3]
@@ -137,6 +177,7 @@ def make_estimator():
 
 def run_searchlight(X_img, y, groups, mask_img):
     cv = LeaveOneGroupOut()
+
     sl = SearchLight(
         mask_img=mask_img,
         process_mask_img=mask_img,
@@ -147,6 +188,7 @@ def run_searchlight(X_img, y, groups, mask_img):
         verbose=VERBOSE,
         scoring="accuracy",
     )
+
     sl.fit(X_img, y, groups=groups)
     return sl.scores_
 
@@ -155,28 +197,18 @@ def sanitize_scores(scores_arr: np.ndarray) -> np.ndarray:
     return np.nan_to_num(scores_arr, nan=0.0, posinf=0.0, neginf=0.0)
 
 
-def permute_labels_within_groups(y, groups, rng):
+def permute_labels_global(y, rng):
     """
-    Shuffle labels within each session/group.
+    Shuffle labels across all samples while keeping:
+    - X fixed
+    - groups fixed
+    - class counts fixed
 
-    This preserves:
-    - number of samples per session
-    - class balance per session
-    - the grouping structure used in LOSO CV
-
-    For a 2-class design with one happiness and one anger per session,
-    this becomes a swap-or-not-swap within each session.
+    This breaks the relation between brain data and labels,
+    while preserving the same LeaveOneGroupOut(session) CV structure.
     """
     y_perm = np.array(y, copy=True)
-
-    groups = np.asarray(groups)
-    unique_groups = pd.unique(groups)
-
-    for g in unique_groups:
-        idx = np.where(groups == g)[0]
-        y_perm[idx] = rng.permutation(y_perm[idx])
-
-    return y_perm
+    return rng.permutation(y_perm)
 
 
 def save_map_as_nii(arr, ref_img, out_path: Path):
@@ -199,12 +231,14 @@ def save_plot(img, bg_img, title, out_path: Path, threshold=None):
 
 
 # DATA COLLECTION
+
 def collect_samples(subject: str) -> pd.DataFrame:
     subj_dir = BETAS_ROOT / subject
     if not subj_dir.exists():
         raise FileNotFoundError(f"Subject folder not found: {subj_dir}")
 
     rows = []
+
     for ses_dir in sorted(subj_dir.glob("ses-*")):
         bas_dir = ses_dir / BAS_FOLDER
         if not bas_dir.exists():
@@ -241,33 +275,51 @@ def collect_samples(subject: str) -> pd.DataFrame:
             )
 
     df = pd.DataFrame(rows)
+
     if df.empty:
         raise ValueError(
-            f"No passive samples found for {subject}. "
-            f"Check that labels include 'run-*_passive_*_*'."
+            f"No {TASK_FILTER} samples found for {subject}. "
+            f"Check that labels include 'run-*_{TASK_FILTER}_*_*'."
         )
+
     return df
 
 
 def build_pair_for_modality(df: pd.DataFrame, modality: str):
     emo_a, emo_b = PAIR
-    meta = df[(df["modality"] == modality) & (df["emotion"].isin([emo_a, emo_b]))].copy()
+
+    meta = df[
+        (df["modality"] == modality) &
+        (df["emotion"].isin([emo_a, emo_b]))
+    ].copy()
 
     if meta.empty:
         raise ValueError(f"No samples for modality={modality} and pair={PAIR}")
 
     # stable ordering helps reproducibility
-    meta = meta.sort_values(["session", "run", "emotion", "beta_name"]).reset_index(drop=True)
+    meta = meta.sort_values(
+        ["session", "run", "emotion", "beta_name"]
+    ).reset_index(drop=True)
 
     X_img = concat_imgs(meta["beta_path"].tolist())
     y = meta["emotion"].to_numpy()
-    groups = meta["session"].to_numpy()   # Leave-one-session-out
+    groups = meta["session"].to_numpy()
 
     return X_img, y, groups, meta
 
 
 # OUTPUTS
-def save_real_outputs(subject: str, modality: str, scores_arr: np.ndarray, bg_img, meta: pd.DataFrame, mask_img, n_perms: int, seed: int):
+
+def save_real_outputs(
+    subject: str,
+    modality: str,
+    scores_arr: np.ndarray,
+    bg_img,
+    meta: pd.DataFrame,
+    mask_img,
+    n_perms: int,
+    seed: int,
+):
     emo_a, emo_b = PAIR
     outdir = OUTDIR / subject / f"mod-{modality}"
     outdir.mkdir(parents=True, exist_ok=True)
@@ -303,7 +355,7 @@ def save_real_outputs(subject: str, modality: str, scores_arr: np.ndarray, bg_im
         "classifier": "LinearSVC",
         "C": C_SVM,
         "cv": "LeaveOneGroupOut(session)",
-        "permutation_scheme": "shuffle labels within session",
+        "permutation_scheme": "global label shuffling across all sessions",
         "n_jobs": N_JOBS,
         "n_permutations_requested": int(n_perms),
         "random_seed": int(seed),
@@ -313,6 +365,7 @@ def save_real_outputs(subject: str, modality: str, scores_arr: np.ndarray, bg_im
             "design_labels_csv": str(meta_path),
         },
     }
+
     log_path.write_text(json.dumps(log, indent=2), encoding="utf-8")
 
     print(f"[saved] {nii_path}")
@@ -321,7 +374,17 @@ def save_real_outputs(subject: str, modality: str, scores_arr: np.ndarray, bg_im
     print(f"[saved] {log_path}")
 
 
-def save_permutation_outputs(subject: str, modality: str, perm_idx: int, perm_scores: np.ndarray, y_true, y_perm, bg_img, meta: pd.DataFrame, mask_img):
+def save_permutation_outputs(
+    subject: str,
+    modality: str,
+    perm_idx: int,
+    perm_scores: np.ndarray,
+    y_true,
+    y_perm,
+    bg_img,
+    meta: pd.DataFrame,
+    mask_img,
+):
     outdir = OUTDIR / subject / f"mod-{modality}" / "permutations"
     outdir.mkdir(parents=True, exist_ok=True)
 
@@ -352,6 +415,7 @@ def save_permutation_outputs(subject: str, modality: str, perm_idx: int, perm_sc
 
 
 # MAIN
+
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--subject", required=True, help="e.g., sub-001")
@@ -370,6 +434,11 @@ def main():
 
     rng = np.random.default_rng(seed)
 
+    print(f"[os] {OS_NAME}")
+    print(f"[betas_root] {BETAS_ROOT}")
+    print(f"[repo_root] {REPO_ROOT}")
+    print(f"[outdir_root] {OUTDIR}")
+
     df = collect_samples(subject)
 
     first_row = df.iloc[0]
@@ -381,13 +450,20 @@ def main():
     print(f"[mask] Using: {mask_path}")
 
     for modality in MODALITIES:
-        print(f"\n=== {subject} | modality={modality} | task={TASK_FILTER} | pair={PAIR[0]} vs {PAIR[1]} ===")
+        print(
+            f"\n=== {subject} | modality={modality} | "
+            f"task={TASK_FILTER} | pair={PAIR[0]} vs {PAIR[1]} ==="
+        )
 
         X_img, y, groups, meta = build_pair_for_modality(df, modality)
         bg_img = mean_img(X_img, copy_header=True)
 
         n_sessions = pd.Series(groups).nunique()
-        print(f"[info] n_samples={len(meta)} | n_sessions={n_sessions} | n_jobs={N_JOBS} | radius_mm={RADIUS_MM}")
+        print(
+            f"[info] n_samples={len(meta)} | "
+            f"n_sessions={n_sessions} | n_jobs={N_JOBS} | radius_mm={RADIUS_MM}"
+        )
+        print(f"[info] class counts = {meta['emotion'].value_counts().to_dict()}")
 
         if n_sessions < 2:
             raise ValueError(
@@ -395,29 +471,9 @@ def main():
                 f"Found {n_sessions} session(s)."
             )
 
-        # sanity check for within-session permutation
-        session_counts = (
-            meta.groupby(["session", "emotion"])
-            .size()
-            .unstack(fill_value=0)
-        )
-        print("\n[debug] counts per session:")
-        print(session_counts)
-
-        missing_class_sessions = session_counts[
-            (session_counts.get(PAIR[0], 0) == 0) |
-            (session_counts.get(PAIR[1], 0) == 0)
-        ]
-        if len(missing_class_sessions) > 0:
-            raise ValueError(
-                "At least one session does not contain both emotions for this modality. "
-                "Within-session permutation would not be valid there.\n"
-                f"{missing_class_sessions}"
-            )
-
         t_mod = time.time()
 
-        # REAL SEARCHLIGHT
+        # REAL MAP
         print("\n[real] running searchlight with true labels...")
         real_scores = run_searchlight(X_img, y, groups, mask_img)
         real_scores = sanitize_scores(real_scores)
@@ -433,10 +489,13 @@ def main():
             seed=seed,
         )
 
-        # PERMUTATION SEARCHLIGHTS
+        # PERMUTATIONS
         for perm_idx in range(1, n_perms + 1):
-            print(f"\n[perm {perm_idx:03d}/{n_perms:03d}] shuffling labels within session...")
-            y_perm = permute_labels_within_groups(y, groups, rng)
+            print(
+                f"\n[perm {perm_idx:03d}/{n_perms:03d}] "
+                f"shuffling labels globally across all sessions..."
+            )
+            y_perm = permute_labels_global(y, rng)
 
             print(f"[perm {perm_idx:03d}] running searchlight...")
             perm_scores = run_searchlight(X_img, y_perm, groups, mask_img)

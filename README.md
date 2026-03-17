@@ -6,31 +6,73 @@ This repository contains the Python code used for my master’s thesis:
 Master’s Programme in [Language and AI]  
 Stockholm University
 
-## Overview
-The code implements searchlight-based multivariate pattern analysis (MVPA)
-on fMRI data using Nilearn. Analyses focus on within-modality emotion
-classification (e.g., happiness vs. anger) across different sensory modalities.
+# fMRI Searchlight & MVPA Analysis of Emotion and Language
 
-## Repository contents
-- 'whole_brain_searchlight.py'  
-  Whole-brain searchlight analysis¨.  Within-modality classification script (happiness vs. anger)
+It contains code developed as part of a Master’s thesis investigating how emotions are represented and decoded in the human brain, with a particular focus on their relationship to language processing systems.
 
-- 'single_axial_slice_searchlight.py'  
-  Searchlight analysis on a single axial slice (for visualization/debugging)
+## Project Overview
 
-- 'two_separate_sarchlight.py'
-  Splitting sessions into (1–10) and late (11–19) and doing leave-one-session-out within each block
+The project applies multivariate pattern analysis (MVPA) and searchlight decoding techniques to fMRI data to identify brain regions that carry information about emotional states across different sensory modalities (e.g., visual and auditory stimuli).
 
-## Requirements
-The code was developed and tested with:
-- Python ≥ 3.9
-- nilearn
-- numpy
-- scipy
-- scikit-learn
+A key aim is to explore whether emotion representations overlap with or engage classical language-related brain regions, contributing to the understanding of emotions as communicative and cognitively structured signals.
 
-(Exact versions may be specified later if needed.)
+## Methods
 
-## Usage
-Scripts are intended to be run from the command line or an IDE such as VS Code.
-Paths to input data and output directories must be adapted to the local environment.
+* Whole-brain **searchlight analysis** using `nilearn.decoding.SearchLight`
+* **Multivariate pattern analysis (MVPA)** using linear Support Vector Machines (SVM)
+* Cross-validation with `LeaveOneGroupOut` to ensure generalization across runs
+* Modality-specific decoding (e.g., audio vs. video conditions)
+* Permutation testing for statistical validation
+
+## Repository Structure
+
+* `scripts/`
+  Main analysis pipelines, including searchlight and MVPA workflows
+
+* `example scripts/`
+  Supporting scripts for testing, visualization, and data inspection
+
+* `.gitignore`
+  Excludes large neuroimaging files and environment-specific folders
+
+## Technologies
+
+* Python
+* Nilearn
+* scikit-learn
+* NumPy, Pandas
+* NiBabel
+* Matplotlib
+
+## Reproducibility
+
+Due to data privacy and size constraints, raw and processed fMRI data are not included in this repository. However, all analysis scripts are provided to ensure reproducibility given appropriate data access.
+
+## Example Usage
+
+```bash
+python whole_brain_searchlight.py --subject sub-001
+```
+
+## Research Context
+
+This work contributes to ongoing research in cognitive neuroscience and computational linguistics by combining:
+
+* Brain decoding techniques
+* Emotion representation modeling
+* Language and communication systems in the brain
+
+The project aligns with current efforts to understand how abstract mental states such as emotions are encoded in distributed neural patterns and how these patterns relate to higher-level cognitive functions like language.
+
+## Key Skills Demonstrated
+
+- Machine learning on neuroimaging data  
+- Multivariate decoding (MVPA)  
+- Python-based scientific computing  
+- Experimental design and analysis  
+
+## Author
+Elisabeth Bizet
+MSc in Language and AI  
+Focus: Neuroimaging, MVPA, emotion, and language processing
+

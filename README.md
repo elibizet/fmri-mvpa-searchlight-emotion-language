@@ -1,4 +1,4 @@
-# Searchlight Analysis Within Modalities
+# fmri-mvpa-searchlight-emotion-language
 
 This repository contains the Python code used for my master’s thesis:
 

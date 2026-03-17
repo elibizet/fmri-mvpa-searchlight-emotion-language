@@ -22,8 +22,12 @@ __pycache__/
 # Virtual environments
 
 mvpa_env/
+.venv/
+env/
 
-# Documents*.pdf
+# Documents*
+# If my plan is to keep thesis/figures in repo, REMOVE these:
+*.pdf
 *.docx
 *.pptx
 

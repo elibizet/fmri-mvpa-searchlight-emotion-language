@@ -41,7 +41,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import LinearSVC
 
 
+# =========================================================
 # PATHS (AUTO-DETECT OS)
+# =========================================================
 
 OS_NAME = platform.system()
 
@@ -77,7 +79,9 @@ BAS_FOLDER = "BAS2"
 LABELS_FILE = "regressor_labels.csv"
 
 
+# =========================================================
 # ANALYSIS CHOICES
+# =========================================================
 
 TASK_FILTER = "passive"
 PAIR = ("happiness", "anger")
@@ -92,7 +96,9 @@ DEFAULT_N_PERMS = 5
 DEFAULT_RANDOM_SEED = 42
 
 
+# =========================================================
 # HELPERS
+# =========================================================
 
 def _read_regressor_labels(labels_path: Path) -> list[str]:
     df = pd.read_csv(labels_path, header=None)
@@ -109,6 +115,7 @@ def parse_label(label: str) -> dict | None:
     """
     Expected format:
     run-<n>_<task>_<emotion>_<modality>
+
     Example:
     run-1_passive_happiness_audiovisual
     """
@@ -211,6 +218,17 @@ def permute_labels_global(y, rng):
     return rng.permutation(y_perm)
 
 
+def rng_for_permutation(base_seed: int, perm_idx: int) -> np.random.Generator:
+    """
+    Create a deterministic RNG for each permutation index.
+
+    This avoids duplicated permutations across separate runs as long as
+    each permutation gets a unique perm_idx.
+    """
+    perm_seed = int(base_seed) + int(perm_idx) * 100_003
+    return np.random.default_rng(perm_seed)
+
+
 def save_map_as_nii(arr, ref_img, out_path: Path):
     nii = new_img_like(ref_img, sanitize_scores(arr))
     nii.to_filename(out_path)
@@ -230,7 +248,46 @@ def save_plot(img, bg_img, title, out_path: Path, threshold=None):
     display.close()
 
 
+def get_next_permutation_index(perm_outdir: Path) -> int:
+    """
+    Look for existing permutation files in the output folder and return
+    the next available permutation index.
+
+    Example:
+    existing perm_001 ... perm_015 -> returns 16
+    """
+    if not perm_outdir.exists():
+        return 1
+
+    existing_indices = []
+
+    for f in perm_outdir.glob("perm_*_searchlight-acc.nii.gz"):
+        m = re.match(r"perm_(\d+)_searchlight-acc\.nii\.gz", f.name)
+        if m:
+            existing_indices.append(int(m.group(1)))
+
+    if not existing_indices:
+        return 1
+
+    return max(existing_indices) + 1
+
+
+def real_outputs_exist(subject: str, modality: str) -> bool:
+    emo_a, emo_b = PAIR
+    outdir = OUTDIR / subject / f"mod-{modality}"
+    stem = f"{subject}_mod-{modality}_pair-{emo_a}-vs-{emo_b}"
+
+    nii_path = outdir / f"{stem}_real_searchlight-acc.nii.gz"
+    png_path = outdir / f"{stem}_real_searchlight-acc.png"
+    log_path = outdir / f"{stem}_runlog.json"
+    meta_path = outdir / f"{stem}_design_labels.csv"
+
+    return all(p.exists() for p in [nii_path, png_path, log_path, meta_path])
+
+
+# =========================================================
 # DATA COLLECTION
+# =========================================================
 
 def collect_samples(subject: str) -> pd.DataFrame:
     subj_dir = BETAS_ROOT / subject
@@ -296,7 +353,6 @@ def build_pair_for_modality(df: pd.DataFrame, modality: str):
     if meta.empty:
         raise ValueError(f"No samples for modality={modality} and pair={PAIR}")
 
-    # stable ordering helps reproducibility
     meta = meta.sort_values(
         ["session", "run", "emotion", "beta_name"]
     ).reset_index(drop=True)
@@ -308,7 +364,9 @@ def build_pair_for_modality(df: pd.DataFrame, modality: str):
     return X_img, y, groups, meta
 
 
+# =========================================================
 # OUTPUTS
+# =========================================================
 
 def save_real_outputs(
     subject: str,
@@ -317,8 +375,10 @@ def save_real_outputs(
     bg_img,
     meta: pd.DataFrame,
     mask_img,
-    n_perms: int,
+    n_perms_requested: int,
     seed: int,
+    perm_start_idx: int,
+    perm_end_idx: int,
 ):
     emo_a, emo_b = PAIR
     outdir = OUTDIR / subject / f"mod-{modality}"
@@ -357,8 +417,12 @@ def save_real_outputs(
         "cv": "LeaveOneGroupOut(session)",
         "permutation_scheme": "global label shuffling across all sessions",
         "n_jobs": N_JOBS,
-        "n_permutations_requested": int(n_perms),
-        "random_seed": int(seed),
+        "n_permutations_requested_this_run": int(n_perms_requested),
+        "base_seed_this_run": int(seed),
+        "permutation_indices_created_this_run": {
+            "start": int(perm_start_idx),
+            "end": int(perm_end_idx),
+        },
         "outputs": {
             "nii": str(nii_path),
             "png": str(png_path),
@@ -384,6 +448,7 @@ def save_permutation_outputs(
     bg_img,
     meta: pd.DataFrame,
     mask_img,
+    base_seed: int,
 ):
     outdir = OUTDIR / subject / f"mod-{modality}" / "permutations"
     outdir.mkdir(parents=True, exist_ok=True)
@@ -393,6 +458,7 @@ def save_permutation_outputs(
     nii_path = outdir / f"{perm_stem}_searchlight-acc.nii.gz"
     png_path = outdir / f"{perm_stem}_searchlight-acc.png"
     labels_path = outdir / f"{perm_stem}_labels.csv"
+    meta_json_path = outdir / f"{perm_stem}_meta.json"
 
     perm_img = save_map_as_nii(perm_scores, mask_img, nii_path)
 
@@ -409,18 +475,53 @@ def save_permutation_outputs(
     perm_lab_df["y_perm"] = y_perm
     perm_lab_df.to_csv(labels_path, index=False)
 
+    perm_meta = {
+        "subject": subject,
+        "modality": modality,
+        "task": TASK_FILTER,
+        "pair": list(PAIR),
+        "perm_idx": int(perm_idx),
+        "base_seed": int(base_seed),
+        "perm_seed_formula": "base_seed + perm_idx * 100003",
+        "perm_seed": int(base_seed + perm_idx * 100_003),
+        "outputs": {
+            "nii": str(nii_path),
+            "png": str(png_path),
+            "labels_csv": str(labels_path),
+        },
+    }
+    meta_json_path.write_text(json.dumps(perm_meta, indent=2), encoding="utf-8")
+
     print(f"[saved] {nii_path}")
     print(f"[saved] {png_path}")
     print(f"[saved] {labels_path}")
+    print(f"[saved] {meta_json_path}")
 
 
+# =========================================================
 # MAIN
+# =========================================================
 
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--subject", required=True, help="e.g., sub-001")
-    p.add_argument("--n-perms", type=int, default=DEFAULT_N_PERMS, help="number of permutations")
-    p.add_argument("--seed", type=int, default=DEFAULT_RANDOM_SEED, help="random seed")
+    p.add_argument(
+        "--n-perms",
+        type=int,
+        default=DEFAULT_N_PERMS,
+        help="number of NEW permutations to run"
+    )
+    p.add_argument(
+        "--seed",
+        type=int,
+        default=DEFAULT_RANDOM_SEED,
+        help="base random seed"
+    )
+    p.add_argument(
+        "--rerun-real",
+        action="store_true",
+        help="force recomputing the real searchlight even if files already exist"
+    )
     return p.parse_args()
 
 
@@ -430,9 +531,11 @@ def main():
     args = parse_args()
     subject = args.subject
     n_perms = args.n_perms
-    seed = args.seed
+    base_seed = args.seed
+    rerun_real = args.rerun_real
 
-    rng = np.random.default_rng(seed)
+    if n_perms < 1:
+        raise ValueError("--n-perms must be at least 1")
 
     print(f"[os] {OS_NAME}")
     print(f"[betas_root] {BETAS_ROOT}")
@@ -471,31 +574,48 @@ def main():
                 f"Found {n_sessions} session(s)."
             )
 
+        perm_outdir = OUTDIR / subject / f"mod-{modality}" / "permutations"
+        perm_start_idx = get_next_permutation_index(perm_outdir)
+        perm_end_idx = perm_start_idx + n_perms - 1
+
+        print(f"[permutations] output folder: {perm_outdir}")
+        print(
+            f"[permutations] will create NEW permutations "
+            f"{perm_start_idx:03d} to {perm_end_idx:03d}"
+        )
+
         t_mod = time.time()
 
         # REAL MAP
-        print("\n[real] running searchlight with true labels...")
-        real_scores = run_searchlight(X_img, y, groups, mask_img)
-        real_scores = sanitize_scores(real_scores)
+        if real_outputs_exist(subject, modality) and not rerun_real:
+            print("[real] existing real searchlight outputs found -> skipping real map")
+        else:
+            print("\n[real] running searchlight with true labels...")
+            real_scores = run_searchlight(X_img, y, groups, mask_img)
+            real_scores = sanitize_scores(real_scores)
 
-        save_real_outputs(
-            subject=subject,
-            modality=modality,
-            scores_arr=real_scores,
-            bg_img=bg_img,
-            meta=meta,
-            mask_img=mask_img,
-            n_perms=n_perms,
-            seed=seed,
-        )
+            save_real_outputs(
+                subject=subject,
+                modality=modality,
+                scores_arr=real_scores,
+                bg_img=bg_img,
+                meta=meta,
+                mask_img=mask_img,
+                n_perms_requested=n_perms,
+                seed=base_seed,
+                perm_start_idx=perm_start_idx,
+                perm_end_idx=perm_end_idx,
+            )
 
         # PERMUTATIONS
-        for perm_idx in range(1, n_perms + 1):
+        for perm_idx in range(perm_start_idx, perm_end_idx + 1):
             print(
-                f"\n[perm {perm_idx:03d}/{n_perms:03d}] "
+                f"\n[perm {perm_idx:03d}/{perm_end_idx:03d}] "
                 f"shuffling labels globally across all sessions..."
             )
-            y_perm = permute_labels_global(y, rng)
+
+            perm_rng = rng_for_permutation(base_seed, perm_idx)
+            y_perm = permute_labels_global(y, perm_rng)
 
             print(f"[perm {perm_idx:03d}] running searchlight...")
             perm_scores = run_searchlight(X_img, y_perm, groups, mask_img)
@@ -511,6 +631,7 @@ def main():
                 bg_img=bg_img,
                 meta=meta,
                 mask_img=mask_img,
+                base_seed=base_seed,
             )
 
         print(f"[time] modality={modality} took {(time.time() - t_mod)/3600:.2f} hours")

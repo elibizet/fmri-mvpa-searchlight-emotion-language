@@ -1,12 +1,34 @@
-# outputs / generated results
+# Outputs / generated data
+
 outputs/
 outputs for 2D slice/
+Results/
+NEW MVPA results/
+Figures/
+SPM/
+MVPA BAS1/
 
-# documents
-*.pdf
+# Neuroimaging files
+
+*.nii
+*.nii.gz
+*.img
+*.hdr
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environments
+
+mvpa_env/
+
+# Documents*.pdf
 *.docx
 *.pptx
 
-# python cache
-__pycache__/
-*.pyc
+# OS / editor
+
+.DS_Store
+Thumbs.db
+.vscode/

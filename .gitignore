@@ -32,7 +32,6 @@ env/
 *.pptx
 The course/
 example scripts/
-requirements.txt
 
 
 # OS / editor

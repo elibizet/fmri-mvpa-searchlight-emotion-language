@@ -1,3 +1,12 @@
+"""Before trusting permutation results, 
+neuroscientists always check:
+
+Are permutation maps near chance?
+For binary classification:
+chance accuracy ≈ 0.5
+If permutation maps are too high ~ 0.65, 
+something is wrong (usually CV leakage)."""
+
 import nibabel as nib
 import numpy as np
 

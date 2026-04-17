@@ -1,78 +1,202 @@
-# fmri-mvpa-searchlight-emotion-language
+# fMRI MVPA Searchlight – Emotion & Language
 
-This repository contains the Python code used for my master’s thesis:
+This repository contains the analysis code for my Master’s thesis:
 
-**“[Decoding Modality-Independent Emotional Representations in Language-Related Brain Networks]”**  
-Master’s Programme in [Language and AI]  
+**“Decoding Modality-Independent Emotional Representations in Language-Related Brain Networks”**
+Master’s Programme in Language and AI
 Stockholm University
-
-# fMRI Searchlight & MVPA Analysis of Emotion and Language
-
-It contains code developed as part of a Master’s thesis investigating how emotions are represented and decoded in the human brain, with a particular focus on their relationship to language processing systems.
 
 ## Project Overview
 
-The project applies multivariate pattern analysis (MVPA) and searchlight decoding techniques to fMRI data to identify brain regions that carry information about emotional states across different sensory modalities (e.g., visual and auditory stimuli).
+This project investigates how emotional categories are represented in the human brain, and whether such representations are **modality-independent** across sensory modalities such as vision and audition.
 
-A key aim is to explore whether emotion representations overlap with or engage classical language-related brain regions, contributing to the understanding of emotions as communicative and cognitively structured signals.
+Using **multivariate pattern analysis (MVPA)** and **searchlight decoding**, the study examines whether **language-related brain regions** contribute to abstract representations of emotional meaning beyond sensory-specific processing.
+
+## Main Research Questions
+
+* Do emotional representations generalize across modalities, for example from video to audio?
+* Do language-related brain regions encode modality-independent emotional information?
+* Does task engagement influence decoding performance and abstraction?
 
 ## Methods
 
-* Whole-brain **searchlight analysis** using `nilearn.decoding.SearchLight`
-* **Multivariate pattern analysis (MVPA)** using linear Support Vector Machines (SVM)
-* Cross-validation with `LeaveOneGroupOut` to ensure generalization across runs
-* Modality-specific decoding (e.g., audio vs. video conditions)
-* Permutation testing for statistical validation
+* **Searchlight analysis** using `nilearn.decoding.SearchLight`
+* **Classifier:** Linear Support Vector Machine (SVM)
+* **Cross-validation:** Leave-One-Group-Out (LOGO), session-based
+* **Analyses:**
+
+  * Within-modal decoding
+  * Cross-modal decoding
+* **Statistical validation:** Permutation testing with label shuffling
 
 ## Repository Structure
 
-* `scripts/`
-  Main analysis pipelines, including searchlight and MVPA workflows
+```text
+scripts/
+figures/
+README.md
+.gitignore
+requirements.txt
+```
 
-* `example scripts/`
-  Supporting scripts for testing, visualization, and data inspection
+## Analysis Pipeline
 
-* `.gitignore`
-  Excludes large neuroimaging files and environment-specific folders
+```text
+Input fMRI data
+      │
+      ▼
+Mask creation and refinement
+(create_binary_mask.py → binary_mask.py → final_masks.py)
+      │
+      ▼
+Quality control
+(alignment_checking.py, visual_check.py)
+      │
+      ├─────────────────────────────┐
+      │                             │
+      ▼                             ▼
+Within-modal MVPA              Cross-modal MVPA
+(within_modal_mvpa.py)         (mvpa_cross_modal_LOGO.py)
+      │                             │
+      └──────────────┬──────────────┘
+                     ▼
+          Whole-brain searchlight
+         (searchlight_raw_values.py)
+                     ▼
+           Permutation testing
+        (mvpa_LOGO_perm_testing.py)
+                     ▼
+              Statistical results
+```
+
+## Core Scripts
+
+### Masking and preprocessing
+
+#### `create_binary_mask.py`
+
+Creates an initial binary mask for a region or image of interest.
+
+**Example**
+
+```bash
+python scripts/create_binary_mask.py
+```
+
+#### `binary_mask.py`
+
+Processes and refines binary masks used in decoding analyses.
+
+**Example**
+
+```bash
+python scripts/binary_mask.py
+```
+
+#### `final_masks.py`
+
+Generates the final masks used for MVPA and searchlight analyses.
+
+**Example**
+
+```bash
+python scripts/final_masks.py
+```
+
+### Quality control and visualization
+
+#### `alignment_checking.py`
+
+Checks whether functional and anatomical images are correctly aligned.
+
+**Example**
+
+```bash
+python scripts/alignment_checking.py
+```
+
+#### `visual_check.py`
+
+Performs visual inspection of output maps and intermediate results.
+
+**Example**
+
+```bash
+python scripts/visual_check.py
+```
+
+### Decoding analyses
+
+#### `within_modal_mvpa.py`
+
+Runs within-modal MVPA, for example training and testing within the same modality.
+
+**Example**
+
+```bash
+python scripts/within_modal_mvpa.py --subject sub-001
+```
+
+#### `mvpa_cross_modal_LOGO.py`
+
+Runs cross-modal MVPA using Leave-One-Group-Out cross-validation.
+
+**Example**
+
+```bash
+python scripts/mvpa_cross_modal_LOGO.py --subject sub-001
+```
+
+#### `searchlight_raw_values.py`
+
+Runs whole-brain searchlight decoding and saves unthresholded accuracy maps.
+
+**Example**
+
+```bash
+python scripts/searchlight_raw_values.py --subject sub-001
+```
+
+#### `mvpa_LOGO_perm_testing.py`
+
+Runs permutation testing for MVPA analyses to assess statistical significance.
+
+**Example**
+
+```bash
+python scripts/mvpa_LOGO_perm_testing.py --subject sub-001 --n-perms 100
+```
+
+## Reproducibility
+
+Due to data privacy and size constraints, raw and processed fMRI data are not included in this repository.
+However, all analysis scripts are provided to support reproducibility given appropriate data access.
 
 ## Technologies
 
 * Python
 * Nilearn
 * scikit-learn
-* NumPy, Pandas
+* NumPy
+* Pandas
 * NiBabel
 * Matplotlib
 
-## Reproducibility
+## Notes
 
-Due to data privacy and size constraints, raw and processed fMRI data are not included in this repository. However, all analysis scripts are provided to ensure reproducibility given appropriate data access.
+Additional scripts for:
 
-## Example Usage
+* whole-brain permutation searchlight
+* max-statistic correction
 
-```bash
-python whole_brain_searchlight.py --subject sub-001
-```
-
-## Research Context
-
-This work contributes to ongoing research in cognitive neuroscience and computational linguistics by combining:
-
-* Brain decoding techniques
-* Emotion representation modeling
-* Language and communication systems in the brain
-
-The project aligns with current efforts to understand how abstract mental states such as emotions are encoded in distributed neural patterns and how these patterns relate to higher-level cognitive functions like language.
-
-## Key Skills Demonstrated
-
-- Machine learning on neuroimaging data  
-- Multivariate decoding (MVPA)  
-- Python-based scientific computing  
-- Experimental design and analysis  
+will be added in future updates.
 
 ## Author
-Elisabeth Bizet
-MSc in Language and AI  
-Focus: Neuroimaging, MVPA, emotion, and language processing
+
+**Elisabeth Bizet**
+MSc in Language and AI
+Stockholm University
+
+Focus: neuroimaging, MVPA, emotion, and language processing
+
 

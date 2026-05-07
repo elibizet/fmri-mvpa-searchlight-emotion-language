@@ -174,13 +174,13 @@ However, all analysis scripts are provided to support reproducibility given appr
 
 ## System Description 
 
-MVPA framework
-Searchlight decoding \cite{etzel2013searchlight} radius/feature space: 8mm (voxels within the searchlight sphere)
-Classifier type: Linear SVM (C=1 (default value) and default Scikit-learn settings.
-Evaluation method: Leave-One-Group-Out()
-Software stack: Python, Nilearn, Scikit-learn, MATLAB, MRIcroGL, SPM152 and NeuroQuery \cite{dockes2020neuroquery}
-NumPy, Pandas, NiBabel and Matplotlib.
-Infrastructure: Workstation at SUBIC and personal computer. 
+* MVPA framework
+* Searchlight decoding \cite{etzel2013searchlight} radius/feature space: 8mm (voxels within the searchlight sphere)
+* Classifier type: Linear SVM (C=1 (default value) and default Scikit-learn settings.
+* Evaluation method: Leave-One-Group-Out()
+* Software stack: Python, Nilearn, Scikit-learn, MATLAB, MRIcroGL, SPM152 and NeuroQuery \cite{dockes2020neuroquery}
+  NumPy, Pandas, NiBabel and Matplotlib.
+* Infrastructure: Workstation at SUBIC and personal computer. 
 
 ## Results Data
 

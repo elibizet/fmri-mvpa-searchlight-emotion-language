@@ -172,15 +172,15 @@ python scripts/mvpa_LOGO_perm_testing.py --subject sub-001 --n-perms 100
 Due to data privacy and size constraints, raw and processed fMRI data are not included in this repository.
 However, all analysis scripts are provided to support reproducibility given appropriate data access.
 
-## Technologies
+## System Description 
 
-* Python
-* Nilearn
-* scikit-learn
-* NumPy
-* Pandas
-* NiBabel
-* Matplotlib
+MVPA framework
+Searchlight decoding \cite{etzel2013searchlight} radius/feature space: 8mm (voxels within the searchlight sphere)
+Classifier type: Linear SVM (C=1 (default value) and default Scikit-learn settings.
+Evaluation method: Leave-One-Group-Out()
+Software stack: Python, Nilearn, Scikit-learn, MATLAB, MRIcroGL, SPM152 and NeuroQuery \cite{dockes2020neuroquery}
+NumPy, Pandas, NiBabel and Matplotlib.
+Infrastructure: Workstation at SUBIC and personal computer. 
 
 ## Results Data
 

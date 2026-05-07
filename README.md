@@ -97,6 +97,8 @@ python scripts/binary_mask.py
 
 Generates the final masks used for MVPA and searchlight analyses.
 
+See the four final masks, all binary (0/1), with matching dimensions and affine to the functional data in the folder * masks
+
 **Example**
 
 ```bash
@@ -174,6 +176,7 @@ However, all analysis scripts are provided to support reproducibility given appr
 
 ## System Description 
 
+* Binary masks created 
 * MVPA framework
 * Searchlight decoding \cite{etzel2013searchlight} radius/feature space: 8mm (voxels within the searchlight sphere)
 * Classifier type: Linear SVM (C=1 (default value) and default Scikit-learn settings.

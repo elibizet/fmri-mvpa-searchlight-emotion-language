@@ -194,14 +194,63 @@ Full MVPA results are available in the `results/` folder as CSV files:
 
 These files contain all decoding results across tasks, masks, and conditions.
 
-## Notes
+## Additional Statistical Scripts
 
-Additional scripts for:
+### `whole_brain_searchlight_permutation.py`
 
-* whole-brain permutation searchlight
-* max-statistic correction
+Runs whole-brain searchlight decoding using the same settings as the real analysis, but with globally shuffled labels to generate permutation-based null maps.
 
-will be added in future updates.
+Main features:
+
+- same searchlight settings as the real analysis
+- 8 mm searchlight radius
+- Leave-One-Group-Out cross-validation (session-based)
+- global label shuffling across sessions
+- saves full unthresholded permutation maps
+- preserves class counts and CV structure
+
+The script does **not** compute corrected thresholds or p-values.  
+Those steps are handled separately by `maxstat.py`.
+
+**Example**
+
+```bash
+python scripts/whole_brain_searchlight_permutation.py \
+    --subject sub-001 \
+    --n-perms 52 \
+    --seed 42
+```
+
+---
+
+### `maxstat.py`
+
+Performs permutation-based maximum statistic correction using the saved permutation searchlight maps.
+
+The script:
+
+- loads the real searchlight map
+- loads all permutation maps
+- extracts the maximum accuracy from each permutation
+- builds the null max-statistic distribution
+- computes the family-wise error corrected threshold
+- applies thresholding to the real map
+- computes corrected voxelwise p-values
+
+Saved outputs include:
+
+- thresholded searchlight map
+- significant voxel mask
+- corrected p-value map
+- CSV file with max-stat values
+- JSON summary file
+- voxelwise accuracy histogram
+
+**Example**
+
+```bash
+python scripts/maxstat.py
+```
 
 ## Author
 
